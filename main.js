@@ -125,6 +125,8 @@
             receiptDate.type = 'number';
             faculty.type = 'text';
 
+            getData();
+
 
             return {
                 containerAdd,
@@ -159,6 +161,13 @@
         let birthDayValue = null;
         let receiptValue = null;
         let facultyValue = null;
+        let listYearAge = null;
+        let education = null;
+        let course = null;
+        let StudyList = null;
+        let searchChild = document.querySelector('.container-list');
+        let getStudyID = null;
+        let warningWindow = null;
 
         function addStudent() {
             createPanel.containerAdd.addEventListener('submit', (e) => {
@@ -179,57 +188,56 @@
         });
 
         function filter(arr, prop, value) {
+            if(searchChild) {
+                searchChild.replaceChildren();
+            }
             return arr.filter(search => search[prop].includes(value));
         }
 
         function filterInputForm() {
-                let finishArray = [...studentStorage];
                 if(createPanel.searchName.value.trim() !== "") {
-                    finishArray = filter(finishArray, "fio", createPanel.searchName.value.trim());
+                    StudyList = filter(StudyList, "fio", createPanel.searchName.value.trim());
                     createPanel.searchFaculty.disabled = false;
                 }
                 if(createPanel.searchFaculty.value.trim() !== "") {
-                    finishArray = filter(finishArray, "faculty", createPanel.searchFaculty.value.trim());
+                    StudyList = filter(StudyList, "faculty", createPanel.searchFaculty.value.trim());
                     createPanel.yearStart.disabled = false;
                     createPanel.yearFinish.disabled = false;
                 }
                 if(createPanel.yearStart.value.trim() !== "") {
-                    finishArray = filter(finishArray, "receipt", createPanel.yearStart.value.trim());
+                    StudyList = filter(StudyList, "receipt", createPanel.yearStart.value.trim());
                 }
                 if(createPanel.yearFinish.value.trim() !== "") {
-                    finishArray = filter(finishArray, "receiptOut", createPanel.yearFinish.value.trim());
+                    StudyList = filter(StudyList, "receiptOut", createPanel.yearFinish.value.trim());
                 }
-                createListStudent(finishArray);
+                createListStudent(StudyList);
         }
 
-        let sortArray = null;
-
         function sortStudent(prop) {
+            if(searchChild) {
+                searchChild.replaceChildren();
+            }
             return (a, b) => a[prop] > b[prop] ? 1 : -1;
         }
 
         createPanel.getFIO.addEventListener('click', () => {
-            sortArray = [...studentStorage];
-            sortArray.sort(sortStudent("fio"));
-            createListStudent(sortArray);
+            StudyList.sort(sortStudent("fio"));
+            createListStudent(StudyList);
         });
 
         createPanel.getFaculty.addEventListener('click', () => {
-            sortArray = [...studentStorage];
-            sortArray.sort(sortStudent("faculty"));
-            createListStudent(sortArray);
+            StudyList.sort(sortStudent("faculty"));
+            createListStudent(StudyList);
         });
 
         createPanel.getYearStart.addEventListener('click', () => {
-            sortArray = [...studentStorage];
-            sortArray.sort(sortStudent("dateOfBirth"));
-            createListStudent(sortArray);
+            StudyList.sort(sortStudent("dateOfBirth"));
+            createListStudent(StudyList);
         });
 
         createPanel.getYearFinish.addEventListener('click', () => {
-            sortArray = [...studentStorage];
-            sortArray.sort(sortStudent("receiptOut"));
-            createListStudent(sortArray);
+            StudyList.sort(sortStudent("receiptOut"));
+            createListStudent(StudyList);
         });
 
         function windowPopup(value) {
@@ -267,10 +275,6 @@
                 studentPushObject();
             }
         }
-        
-        let listYearAge = null;
-        let education = null;
-        let course = null;
 
         function calcAge() {
             let yearBirth = birthDayValue;
@@ -280,8 +284,51 @@
             let calcCourse = yearToday.substr(0,4);
             education = Number(receiptValue) + 4;
             calcAgeStudent < calcToday ? listYearAge = calcCourse - yearBirth.substr(0,4) : listYearAge = calcCourse - yearBirth.substr(0,4) - 1;
-            education < calcCourse ? course = 'Закончил' : calcCourse === "2023" ? course = "1" + " " + "курс" : course = Number(calcCourse) - Number(receiptValue) + " " + "курс";
+            education < calcCourse ? course = 'Закончил' : calcCourse === calcCourse + 1 ? course = "1" + " " + "курс" : course = Number(calcCourse) - Number(receiptValue) + " " + "курс";
         }
+
+        async function postData() {
+            let response = await fetch('http://localhost:3000/api/students', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(studentObject)
+            });
+            return await response.json();
+        }
+
+        async function searchData(value) {
+            await fetch(`http://localhost:3000/api/students/${value}`)
+            .then((receive) => {
+                return receive.json();
+            })
+            .then((data) => {
+                warningWindow = data.fio;
+                if(confirm('Вы уверены, что хотите удалить' + " " + warningWindow + '?')) {
+                    deleteData(getStudyID);
+                }
+            });
+        }
+
+        async function getData() {
+            await fetch('http://localhost:3000/api/students')
+            .then((receive) => {
+                return receive.json();
+            })
+            .then((data) => {
+                StudyList = data;
+                createListStudent(StudyList);
+                deleteStudent();
+            });
+        }
+
+        async function deleteData(value) {
+            await fetch(`http://localhost:3000/api/students/${value}`, {method: 'DELETE'});
+            searchChild.replaceChildren();
+            await getData();
+        }
+
 
         function studentPushObject() {
             studentObject = {
@@ -293,8 +340,10 @@
                 age: listYearAge,
                 courseNumber: course.trim(),
             };
+            postData();
             studentStorage.push(studentObject);
             createListStudent(studentStorage);
+            studentStorage = [];
             createPanel.inputSurname.value = '';
             createPanel.inputName.value = '';
             createPanel.fatherName.value = '';
@@ -306,28 +355,38 @@
         addStudent();
 
         function createListStudent(array) {
-            let searchChild = document.querySelector('.container-list');
-            if(searchChild) {
-                searchChild.replaceChildren();
-            }
             for (let i of array) {
                 const fio = document.createElement('div');
                     facultyList = document.createElement('div');
                     dateOfTheBirthList = document.createElement('div');
                     yearStartFinishList = document.createElement('div');
                     listStudent = document.createElement('div');
+                    deleteStudentList = document.createElement('button');
                     containerListStudent = document.querySelector('.container-list');
                 listStudent.classList.add('item-student');
+                deleteStudentList.classList.add('delete-study-button');
                 containerListStudent.append(listStudent);
                 listStudent.append(fio);
                 listStudent.append(facultyList);
                 listStudent.append(dateOfTheBirthList);
                 listStudent.append(yearStartFinishList);
+                listStudent.append(deleteStudentList);
                 fio.textContent = i.fio;
                 facultyList.textContent = i.faculty;
                 dateOfTheBirthList.textContent = i.dateOfBirth + " " + "("+i.age + " " + "лет" + ")";
                 yearStartFinishList.textContent = i.receipt + " " + "-" + " " + i.receiptOut + " " + "(" + i.courseNumber + ")";
+                deleteStudentList.dataset.id = i.id;
             };
+        }
+
+        async function deleteStudent() {
+            let deleteButton = document.querySelectorAll('.delete-study-button');
+                deleteButton.forEach((e) => {
+                    e.addEventListener('click', () => {
+                        getStudyID = e.getAttribute("data-id");
+                        searchData(getStudyID);
+                    });
+                });
         }
 
     })
